@@ -1,3 +1,4 @@
+import portalRules from '../utils/portalRules.cjs';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 
 const SIGN_IN_FUNCTION = 'sign-in-with-code';
@@ -8,7 +9,7 @@ export async function signInWithAccessCode(code, password) {
     }
 
     const normalizedCode = code.trim().toUpperCase();
-    if (!/^[A-Z][0-9]{8}$/.test(normalizedCode) || !password) {
+    if (!portalRules.isValidAccessCode(normalizedCode) || !password) {
         throw new Error('Ingresa un código válido y tu contraseña.');
     }
 
