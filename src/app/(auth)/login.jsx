@@ -23,7 +23,7 @@ export default function Login() {
         setError('');
         try {
             await signIn(code, password);
-            router.replace('/(tabs)');
+            router.replace('/(tabs)/home');
         } catch (signInError) {
             setError(signInError.message || 'No se pudo iniciar sesión.');
         } finally {
@@ -46,11 +46,11 @@ export default function Login() {
                 <Divider />
 
                 <View style={styles.form}>
-                    <Input label="Código de acceso" placeholder="S85296420" required size="lg" value={code} onChangeText={setCode} autoCapitalize="characters" />
+                    <Input label="Código de acceso" placeholder="A12345678" required size="lg" value={code} onChangeText={setCode} autoCapitalize="characters" />
                     <Input label="Contraseña" type="password" placeholder="Ingresa tu contraseña" required size="lg" value={password} onChangeText={setPassword} onSubmitEditing={handleSignIn} returnKeyType="go" />
                     {!isConfigured && <TextApp size="xs" color="#b42318">Falta configurar la conexión con TTUTIS en .env.local.</TextApp>}
                     {!!error && <TextApp size="xs" color="#b42318" accessibilityRole="alert">{error}</TextApp>}
-                    <Button fullWidth size="lg" loading={loading} disabled={!isConfigured || !code || !password} onPress={handleSignIn}>Ingresar</Button>
+                    <Button fullWidth size="lg" loading={loading} disabled={!isConfigured || !code.trim() || !password || loading} onPress={handleSignIn}>Ingresar</Button>
                 </View>
             </View>
         </Screen>
