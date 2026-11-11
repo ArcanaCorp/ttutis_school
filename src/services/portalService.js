@@ -133,7 +133,7 @@ export async function getStudentAttendance(studentId) {
     }));
 }
 
-export async function getStudentAcademicData(studentId, classroomId) {
+export async function getStudentAcademicData(studentId, classroomId, currentEnrollment = null) {
     const client = requireClient();
     if (!classroomId) return { courses: [], schedule: [], assessments: [], grades: [] };
 
@@ -275,7 +275,7 @@ export async function getStudentAcademicData(studentId, classroomId) {
 
     return {
         courses,
-        schedule: { days, breaks: [], grade: null, section: null, academicYear: null },
+        schedule: { days, breaks: [], grade: currentEnrollment?.classrooms?.grade_label || null, section: currentEnrollment?.classrooms?.section_name || null, academicYear: currentEnrollment?.academic_years?.name || null },
         periods: periods || [],
         finalResults: finalResults || [],
         assessments: assessments || [],
