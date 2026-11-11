@@ -176,13 +176,69 @@ export async function getStudentAcademicData(studentId, classroomId) {
         .eq('student_id', studentId);
     throwIfError(gradesError, 'No se pudieron cargar tus calificaciones.');
 
-    return {
-        courses: (assignments || []).map(item => ({
+    const weekdayNames = [
+        { day: 'monday', label: 'Lunes' },
+        { day: 'tuesday', label: 'Martes' },
+        { day: 'wednesday', label: 'Miércoles' },
+        { day: 'thursday', label: 'Jueves' },
+        { day: 'friday', label: 'Viernes' },
+        { day: 'saturday', label: 'Sábado' },
+        { day: 'sunday', label: 'Domingo' },
+    ];
+    const assignmentById = new Map((assignments || []).map(item => [item.id, item]));
+    const days = weekdayNames.map((day, index) => ({
+        ...day,
+        periods: (schedule || [])
+            .filter(period => Number(period.weekday) === index + 1)
+            .map(period => {
+                const assignment = assignmentById.get(period.course_assignment_id);
+                return {
+                    start: String(period.start_time).slice(0, 5),
+                    end: String(period.end_time).slice(0, 5),
+                    subject: assignment?.subjects?.name || 'Clase',
+                };
+            }),
+    }));
+
+    const gradeByAssessment = new Map((grades || []).map(item => [item.assessment_id, item]));
+    const courses = (assignments || []).map(item => {
+        const evaluations = (assessments || [])
+            .filter(assessment => assessment.course_assignment_id === item.id)
+            .map(assessment => {
+                const grade = gradeByAssessment.get(assessment.id);
+                return {
+                    id: assessment.id,
+                    name: assessment.title,
+                    type: 'Evaluación',
+                    date: assessment.assessment_date,
+                    grade: grade?.score ?? null,
+                    maxScore: assessment.maximum_score,
+                    feedback: grade?.feedback || null,
+                };
+            });
+        const graded = evaluations.filter(item => item.grade !== null);
+        const currentAverage = graded.length
+            ? graded.reduce((sum, item) => sum + Number(item.grade), 0) / graded.length
+            : null;
+        return {
             id: item.id,
-            subject: item.subjects,
+            code: item.subjects?.code || '',
+            name: item.subjects?.name || 'Asignatura',
+            description: item.subjects?.description || '',
             teacher: teacherNames.get(item.teacher_membership_id) || null,
-        })),
-        schedule: schedule || [],
+            progress: {
+                evaluations,
+                currentAverage,
+                finalGrade: null,
+                finalized: false,
+                maxScore: 20,
+            },
+        };
+    });
+
+    return {
+        courses,
+        schedule: { days, breaks: [] },
         assessments: assessments || [],
         grades: grades || [],
     };
