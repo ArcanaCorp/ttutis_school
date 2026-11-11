@@ -26,7 +26,7 @@ import TextApp from '../../components/ui/TextApp';
 import Carousel from '../../components/ui/Carousel';
 
 import { theme } from '../../constants/theme';
-import { studentPortal } from '../../db/db';
+import { useStudentPortal } from '../../context/StudentPortalContext';
 
 const TABS = [
     { id: 'progress', label: 'Progreso', icon: Award },
@@ -437,7 +437,8 @@ function InformationContent({ subject }) {
 }
 
 export default function CoursesTab() {
-    const { subjects = [] } = studentPortal;
+    const { data, loading, error } = useStudentPortal();
+    const subjects = data?.academic?.courses || [];
 
     const [selectedId, setSelectedId] = useState(
         subjects[0]?.id ?? subjects[0]?.code ?? subjects[0]?.name ?? null
@@ -478,6 +479,8 @@ export default function CoursesTab() {
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.main}
             >
+                {loading && <TextApp size="sm" color={theme.colors.text.secondary}>Cargando tus cursos...</TextApp>}
+                {!!error && <TextApp size="sm" color={theme.colors.state.error}>{error}</TextApp>}
                 <View style={styles.coursesSection}>
                     <View style={styles.sectionHeader}>
                         <TextApp size="lg" variant="semibold">
