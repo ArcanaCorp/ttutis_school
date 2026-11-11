@@ -1,4 +1,4 @@
-import { Pressable, Text, ActivityIndicator, StyleSheet, Platform } from 'react-native';
+import { Pressable, ActivityIndicator, Platform } from 'react-native';
 import { theme } from '../../constants/theme';
 import TextApp from './TextApp';
 
