@@ -139,7 +139,7 @@ export async function getStudentAcademicData(studentId, classroomId) {
 
     const { data: assignments, error: assignmentsError } = await client
         .from('course_assignments')
-        .select('id, subject_id, teacher_membership_id, subjects(id, code, name, description)')
+        .select('id, subject_id, teacher_membership_id, academic_year_id, subjects(id, code, name, description)')
         .eq('classroom_id', classroomId)
         .eq('status', 'ACTIVE');
     throwIfError(assignmentsError, 'No se pudieron cargar tus cursos.');
@@ -157,6 +157,8 @@ export async function getStudentAcademicData(studentId, classroomId) {
             .select('id, weekday, start_time, end_time, classroom_label, course_assignment_id, effective_from, effective_until')
             .in('course_assignment_id', assignmentIds)
             .eq('status', 'ACTIVE')
+            .lte('effective_from', new Date().toISOString().slice(0, 10))
+            .or(`effective_until.is.null,effective_until.gte.${new Date().toISOString().slice(0, 10)}`)
             .order('weekday')
             .order('start_time')
         : { data: [], error: null };
@@ -175,6 +177,19 @@ export async function getStudentAcademicData(studentId, classroomId) {
         .select('id, name, code, period_order, starts_on, ends_on, status')
         .eq('academic_year_id', (assignments || [])[0]?.academic_year_id || '')
         .order('period_order');
+    throwIfError(periodsError, 'No se pudieron cargar los periodos académicos.');
+
+    const { data: finalResults, error: finalResultsError } = await client
+        .from('student_course_results')
+        .select('id, course_assignment_id, academic_period_id, final_score, maximum_score, feedback, status, published_at')
+        .eq('student_id', studentId)
+        .eq('status', 'PUBLISHED');
+    throwIfError(finalResultsError, 'No se pudieron cargar los resultados finales.');
+
+    const academicYearId = assignments?.[0]?.academic_year_id || null;
+    const { data: periods, error: periodsError } = academicYearId
+        ? await client.from('academic_periods').select('id, name, code, period_order, starts_on, ends_on, status').eq('academic_year_id', academicYearId).order('period_order')
+        : { data: [], error: null };
     throwIfError(periodsError, 'No se pudieron cargar los periodos académicos.');
 
     const { data: finalResults, error: finalResultsError } = await client
@@ -210,6 +225,8 @@ export async function getStudentAcademicData(studentId, classroomId) {
                     start: String(period.start_time).slice(0, 5),
                     end: String(period.end_time).slice(0, 5),
                     subject: assignment?.subjects?.name || 'Clase',
+                    classroom: period.classroom_label || null,
+                    teacher: teacherNames.get(assignment?.teacher_membership_id) || null,
                     classroom: period.classroom_label || null,
                     teacher: teacherNames.get(assignment?.teacher_membership_id) || null,
                 };
