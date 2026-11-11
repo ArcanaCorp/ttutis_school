@@ -1,0 +1,23 @@
+import { useMemo, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
+import { CalendarDays, AlertCircle } from 'lucide-react-native';
+import Screen from '../../components/ui/Screen';
+import TextApp from '../../components/ui/TextApp';
+import { theme } from '../../constants/theme';
+import { useStudentPortal } from '../../context/StudentPortalContext';
+const STATUS={PRESENT:{label:'Presente',color:theme.colors.state.success},LATE:{label:'Tardanza',color:theme.colors.state.warning},ABSENCE:{label:'Falta registrada',color:theme.colors.state.error}};
+const MONTHS=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+export default function AttendanceTab(){
+ const {data,loading,error}=useStudentPortal();const [offset,setOffset]=useState(0);
+ const month=useMemo(()=>{const d=new Date();d.setDate(1);d.setMonth(d.getMonth()+offset);return d;},[offset]);
+ const records=data?.attendance||[],filtered=records.filter(x=>{const d=new Date((x.date||x.occurred_at).slice(0,10)+'T12:00:00');return d.getMonth()===month.getMonth()&&d.getFullYear()===month.getFullYear();});
+ const count=s=>filtered.filter(x=>x.attendance_status===s).length;
+ return <Screen><View style={styles.header}><TextApp size="2xl" variant="bold">Asistencia</TextApp><TextApp size="xs" color={theme.colors.text.secondary}>Historial de entradas, salidas y puntualidad.</TextApp></View>
+ {loading&&<TextApp>Cargando asistencia...</TextApp>}{!!error&&<TextApp color={theme.colors.state.error}>{error}</TextApp>}
+ <View style={styles.month}><TextApp size="lg" variant="semibold">{MONTHS[month.getMonth()]} {month.getFullYear()}</TextApp><View style={styles.controls}><TextApp onPress={()=>setOffset(x=>x-1)} color={theme.colors.primary.DEFAULT}>Anterior</TextApp><TextApp onPress={()=>setOffset(0)} color={theme.colors.primary.DEFAULT}>Hoy</TextApp><TextApp onPress={()=>setOffset(x=>Math.min(0,x+1))} color={theme.colors.primary.DEFAULT}>Siguiente</TextApp></View></View>
+ <View style={styles.stats}>{[['Presentes','PRESENT'],['Tardanzas','LATE'],['Faltas','ABSENCE']].map(([label,status])=><View key={status} style={styles.stat}><TextApp size="xl" variant="bold" color={STATUS[status].color}>{count(status)}</TextApp><TextApp size="xs" color={theme.colors.text.secondary}>{label}</TextApp></View>)}</View>
+ <View style={styles.notice}><AlertCircle size={17} color={theme.colors.state.info}/><TextApp size="xs" color={theme.colors.text.secondary}>Un día sin evento no se considera automáticamente una falta. Solo se muestra como falta cuando el colegio registra ABSENCE.</TextApp></View>
+ {!loading&&filtered.length===0?<TextApp color={theme.colors.text.secondary}>No hay registros de asistencia para este mes.</TextApp>:<View style={styles.list}>{filtered.map(item=>{const cfg=STATUS[item.attendance_status]||{label:'Evento sin clasificación',color:theme.colors.text.secondary};return <View key={item.id} style={styles.event}><View style={styles.icon}><CalendarDays size={18} color={cfg.color}/></View><View style={{flex:1,gap:4}}><TextApp variant="semibold">{new Date((item.date||item.occurred_at).slice(0,10)+'T12:00:00').toLocaleDateString('es-PE',{weekday:'long',day:'2-digit',month:'long',year:'numeric'})}</TextApp><TextApp size="xs" color={theme.colors.text.secondary}>{item.event_type==='ENTRY'?'Ingreso':item.event_type==='EXIT'?'Salida':item.event_type||'Registro'} · {new Date(item.occurred_at).toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'})}</TextApp>{item.justification_status&&item.justification_status!=='NOT_REQUIRED'?<TextApp size="xs" color={theme.colors.text.secondary}>Justificación: {item.justification_status} {item.justification_notes||''}</TextApp>:null}</View><TextApp size="xs" variant="semibold" color={cfg.color}>{cfg.label}</TextApp></View>;})}</View>}
+ </Screen>;
+}
+const styles=StyleSheet.create({header:{paddingHorizontal:22,paddingTop:22,gap:4},month:{paddingHorizontal:22,gap:12},controls:{flexDirection:'row',justifyContent:'space-between'},stats:{flexDirection:'row',gap:10,paddingHorizontal:22},stat:{flex:1,padding:14,borderRadius:14,backgroundColor:'#F5F6F8',gap:3},notice:{marginHorizontal:22,padding:12,borderRadius:12,backgroundColor:'#EEF6FF',flexDirection:'row',gap:8,alignItems:'center'},list:{paddingHorizontal:22,gap:10},event:{padding:14,borderRadius:14,borderWidth:1,borderColor:theme.colors.border.subtle,flexDirection:'row',gap:10,alignItems:'center'},icon:{width:38,height:38,borderRadius:12,backgroundColor:'#F5F6F8',alignItems:'center',justifyContent:'center'}});
