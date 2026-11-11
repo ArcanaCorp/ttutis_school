@@ -42,9 +42,9 @@ export async function getPortalIdentity() {
     };
 }
 
-export async function getStudentPortalContext() {
+export async function getStudentPortalContext(identity = null) {
     const client = requireClient();
-    const identity = await getPortalIdentity();
+    identity = identity || await getPortalIdentity();
     const studentMembership = identity.memberships.find(item => item.role === 'STUDENT');
     if (!studentMembership) throw new Error('Esta cuenta no tiene una matrícula de alumno activa.');
 
@@ -98,7 +98,7 @@ export async function getStudentAnnouncements(studentId) {
     const now = new Date().toISOString();
     const { data, error } = await client
         .from('student_updates')
-        .select('id, update_type, title, body, grade_value, priority, student_id, classroom_id, visible_from, visible_until, created_at')
+        .select('id, update_type, title, body, grade_value, priority, student_id, classroom_id, visible_from, visible_until, created_at, student_update_reads(profile_id, read_at), student_update_attachments(id, file_name, mime_type, size_bytes, storage_path)')
         .lte('visible_from', now)
         .or(`visible_until.is.null,visible_until.gte.${now}`)
         .order('visible_from', { ascending: false });
@@ -108,6 +108,8 @@ export async function getStudentAnnouncements(studentId) {
         .filter(item => !studentId || !item.student_id || item.student_id === studentId)
         .map(item => ({
             ...item,
+            isRead: false,
+            attachments: item.student_update_attachments || [],
             type: item.update_type === 'ANNOUNCEMENT' ? 'Anuncio' : item.update_type,
             message: item.body,
             date: item.visible_from,
@@ -281,6 +283,72 @@ export async function getStudentAcademicData(studentId, classroomId, currentEnro
         assessments: assessments || [],
         grades: grades || [],
     };
+}
+
+
+export async function markStudentUpdateRead(updateId) {
+    const client = requireClient();
+    const { data: auth, error: authError } = await client.auth.getUser();
+    throwIfError(authError, 'No se pudo validar tu sesión.');
+    if (!auth?.user) throw new Error('Tu sesión ha expirado.');
+    const { error } = await client.from('student_update_reads').upsert(
+        { update_id: updateId, profile_id: auth.user.id, read_at: new Date().toISOString() },
+        { onConflict: 'update_id,profile_id' }
+    );
+    throwIfError(error, 'No se pudo marcar el aviso como leído.');
+}
+export async function getMyProfileDetails() {
+    const client = requireClient();
+    const identity = await getPortalIdentity();
+    const { data, error } = await client.from('profiles').select('id,display_name,avatar_path,status').eq('id',identity.userId).maybeSingle();
+    throwIfError(error,'No se pudo cargar tu perfil.');
+    return { ...identity, profile: data };
+}
+export async function updateMyDisplayName(displayName) {
+    const client = requireClient();
+    const clean = String(displayName || '').trim();
+    if (clean.length < 2 || clean.length > 100) throw new Error('El nombre debe tener entre 2 y 100 caracteres.');
+    const { data: auth } = await client.auth.getUser();
+    if (!auth?.user) throw new Error('Tu sesión ha expirado.');
+    const { error } = await client.from('profiles').update({ display_name: clean, updated_at: new Date().toISOString() }).eq('id',auth.user.id);
+    throwIfError(error,'No se pudo actualizar tu nombre.');
+    return clean;
+}
+export async function getMyNotificationPreferences() {
+    const client = requireClient();
+    const { data: auth } = await client.auth.getUser();
+    if (!auth?.user) throw new Error('Tu sesión ha expirado.');
+    const { data, error } = await client.from('profile_preferences').select('*').eq('profile_id',auth.user.id).maybeSingle();
+    throwIfError(error,'No se pudieron cargar tus preferencias.');
+    return data || { profile_id: auth.user.id, notifications_enabled:true, email_notifications:false, in_app_notifications:true, attendance_notifications:true, academic_notifications:true, payment_notifications:true, communication_notifications:true, timezone:'America/Lima' };
+}
+export async function saveMyNotificationPreferences(values) {
+    const client = requireClient();
+    const { data: auth } = await client.auth.getUser();
+    if (!auth?.user) throw new Error('Tu sesión ha expirado.');
+    const allowed = ['notifications_enabled','email_notifications','in_app_notifications','attendance_notifications','academic_notifications','payment_notifications','communication_notifications'];
+    const payload = Object.fromEntries(allowed.filter(key => typeof values[key] === 'boolean').map(key => [key,values[key]]));
+    const { error } = await client.from('profile_preferences').upsert({ profile_id:auth.user.id, ...payload, updated_at:new Date().toISOString() },{onConflict:'profile_id'});
+    throwIfError(error,'No se pudieron guardar tus preferencias.');
+}
+export async function getStudentAttendanceHistory(studentId, fromDate, toDate) {
+    const client = requireClient();
+    const { data, error } = await client.from('attendance_events')
+        .select('id,event_type,occurred_at,attendance_status,attendance_local_date,justification_status,justification_notes')
+        .eq('student_id',studentId).gte('attendance_local_date',fromDate).lte('attendance_local_date',toDate)
+        .order('occurred_at',{ascending:false}).limit(500);
+    throwIfError(error,'No se pudo cargar el historial de asistencia.');
+    return data || [];
+}
+export async function registerPushToken(token, platform) {
+    const client = requireClient();
+    const { data: auth } = await client.auth.getUser();
+    if (!auth?.user) throw new Error('Tu sesión ha expirado.');
+    const { error } = await client.from('push_device_tokens').upsert({
+        profile_id:auth.user.id, expo_push_token:token, device_platform:platform,
+        is_active:true, last_seen_at:new Date().toISOString(), updated_at:new Date().toISOString()
+    },{onConflict:'expo_push_token'});
+    throwIfError(error,'No se pudo registrar el dispositivo para notificaciones.');
 }
 
 export async function getGuardianChildOverview(studentId, permissions = {}) {
