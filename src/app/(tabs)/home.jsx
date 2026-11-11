@@ -157,6 +157,7 @@ export default function HomeTab() {
                     iconStrokeWidth={1.7}
                     iconOnly
                     size="lg"
+                    onPress={() => router.push('/digital-id')}
                 />
             </View>
 
