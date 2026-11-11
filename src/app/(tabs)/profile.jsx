@@ -10,6 +10,7 @@ import { useAuth } from "../../context/AuthContext";
 import Avatar from "../../components/ui/Avatar";
 import Divider from "../../components/ui/Divider";
 import Button from "../../components/ui/Button";
+import { useStudentPortal } from "../../context/StudentPortalContext";
 
 const profileSections = [
     {
@@ -126,16 +127,17 @@ function ProfileSection({ title, items }) {
 
 export default function ProfileTab() {
     const { profile, signOut } = useAuth();
+    const { data } = useStudentPortal();
     const router = useRouter();
     const [loggingOut, setLoggingOut] = useState(false);
 
-    const academic = profile?.academic;
-
+    const classroom = data?.currentEnrollment?.classrooms;
+    const academicYear = data?.currentEnrollment?.academic_years?.name;
     const educationLevel = {
-        primary: "Primaria",
-        secondary: "Secundaria",
-        initial: "Inicial",
-    }[academic?.educationLevel] ?? academic?.educationLevel;
+        PRIMARY: "Primaria",
+        SECONDARY: "Secundaria",
+        INITIAL: "Inicial",
+    }[classroom?.level] ?? classroom?.level;
 
     const handleSignOut = async () => {
         setLoggingOut(true);
@@ -163,10 +165,10 @@ export default function ProfileTab() {
                 
                 <View style={styles.profileInfo}>
                     <TextApp size="2xl" variant="semibold">{profile?.fullName}</TextApp>
-                    <TextApp size="sm" color={theme.colors.text.secondary}>{academic?.school?.name}</TextApp>
+                    <TextApp size="sm" color={theme.colors.text.secondary}>TTUTIS · Información académica</TextApp>
                     <View style={styles.academicBadge}>
-                        <TextApp size="xs" variant="medium">{educationLevel} · {academic?.grade}° {academic?.section}</TextApp>
-                        <TextApp size="xs" color={theme.colors.text.secondary}>Año escolar {academic?.academicYear}</TextApp>
+                        <TextApp size="xs" variant="medium">{educationLevel || 'Nivel pendiente'} · {classroom?.grade_label || 'Grado pendiente'} {classroom?.section_name || ''}</TextApp>
+                        <TextApp size="xs" color={theme.colors.text.secondary}>Año escolar {academicYear || '—'}</TextApp>
                     </View>
                 </View>
 
