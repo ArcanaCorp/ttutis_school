@@ -412,7 +412,7 @@ export async function getGuardianChildOverview(studentId, permissions = {}) {
 
     const enrollment = enrollmentResult.data?.[0] || null;
     const academic = enrollment?.classroom_id
-        ? await getStudentAcademicData(studentId, enrollment.classroom_id)
+        ? await getStudentAcademicData(studentId, enrollment.classroom_id, enrollment)
         : { courses: [], schedule: [], assessments: [], grades: [] };
 
     return {
