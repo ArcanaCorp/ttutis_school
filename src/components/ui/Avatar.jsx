@@ -1,10 +1,11 @@
 import { Blobatar } from "@blobatar/react-native";
-import { useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
 import { Animated, Easing } from "react-native";
 
-export default function Avatar ({ name, size=24 }) {
-
-    const floatAnim = useRef(new Animated.Value(0)).current;
+export default function Avatar({ name, size = 24 }) {
+    // useState lazy initialization keeps the Animated.Value stable without
+    // reading a ref during render (React 19 lint rules).
+    const [floatAnim] = useState(() => new Animated.Value(0));
 
     useEffect(() => {
         const animation = Animated.loop(
@@ -25,7 +26,6 @@ export default function Avatar ({ name, size=24 }) {
         );
 
         animation.start();
-
         return () => animation.stop();
     }, [floatAnim]);
 
@@ -33,20 +33,18 @@ export default function Avatar ({ name, size=24 }) {
         inputRange: [0, 1],
         outputRange: [0, -9],
     });
-
     const rotate = floatAnim.interpolate({
         inputRange: [0, 0.5, 1],
         outputRange: ["-3deg", "2deg", "-3deg"],
     });
-
     const scale = floatAnim.interpolate({
         inputRange: [0, 0.5, 1],
         outputRange: [1, 1.04, 1],
     });
 
     return (
-        <Animated.View style={{transform: [{ translateY }, { rotate }, { scale }],}}>
+        <Animated.View style={{ transform: [{ translateY }, { rotate }, { scale }] }}>
             <Blobatar name={name} size={size} />
         </Animated.View>
-    )
+    );
 }
