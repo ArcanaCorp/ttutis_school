@@ -164,11 +164,25 @@ export async function getStudentAcademicData(studentId, classroomId) {
 
     const { data: assessments, error: assessmentsError } = await client
         .from('classroom_assessments')
-        .select('id, course_assignment_id, title, description, assessment_date, maximum_score, status')
+        .select('id, course_assignment_id, academic_period_id, title, description, assessment_date, maximum_score, status, weight')
         .eq('classroom_id', classroomId)
         .in('status', ['PUBLISHED', 'ACTIVE'])
         .order('assessment_date', { ascending: false });
     throwIfError(assessmentsError, 'No se pudieron cargar tus evaluaciones.');
+
+    const { data: periods, error: periodsError } = await client
+        .from('academic_periods')
+        .select('id, name, code, period_order, starts_on, ends_on, status')
+        .eq('academic_year_id', (assignments || [])[0]?.academic_year_id || '')
+        .order('period_order');
+    throwIfError(periodsError, 'No se pudieron cargar los periodos académicos.');
+
+    const { data: finalResults, error: finalResultsError } = await client
+        .from('student_course_results')
+        .select('id, course_assignment_id, academic_period_id, final_score, maximum_score, feedback, status, published_at')
+        .eq('student_id', studentId)
+        .eq('status', 'PUBLISHED');
+    throwIfError(finalResultsError, 'No se pudieron cargar los resultados finales.');
 
     const { data: grades, error: gradesError } = await client
         .from('classroom_assessment_grades')
@@ -196,6 +210,8 @@ export async function getStudentAcademicData(studentId, classroomId) {
                     start: String(period.start_time).slice(0, 5),
                     end: String(period.end_time).slice(0, 5),
                     subject: assignment?.subjects?.name || 'Clase',
+                    classroom: period.classroom_label || null,
+                    teacher: teacherNames.get(assignment?.teacher_membership_id) || null,
                 };
             }),
     }));
@@ -211,15 +227,17 @@ export async function getStudentAcademicData(studentId, classroomId) {
                     name: assessment.title,
                     type: 'Evaluación',
                     date: assessment.assessment_date,
+                    periodId: assessment.academic_period_id,
+                    weight: Number(assessment.weight || 1),
                     grade: grade?.score ?? null,
                     maxScore: assessment.maximum_score,
                     feedback: grade?.feedback || null,
                 };
             });
         const graded = evaluations.filter(item => item.grade !== null);
-        const currentAverage = graded.length
-            ? graded.reduce((sum, item) => sum + Number(item.grade), 0) / graded.length
-            : null;
+        const weighted = graded.reduce((acc, item) => { const weight = Number(item.weight || 1); acc.total += (Number(item.grade) / Number(item.maxScore || 20)) * 20 * weight; acc.weight += weight; return acc; }, { total: 0, weight: 0 });
+        const currentAverage = weighted.weight ? weighted.total / weighted.weight : null;
+        const publishedFinal = (finalResults || []).find(result => result.course_assignment_id === item.id && !result.academic_period_id) || null;
         return {
             id: item.id,
             code: item.subjects?.code || '',
@@ -229,8 +247,10 @@ export async function getStudentAcademicData(studentId, classroomId) {
             progress: {
                 evaluations,
                 currentAverage,
-                finalGrade: null,
-                finalized: false,
+                finalGrade: publishedFinal?.final_score ?? null,
+                finalized: Boolean(publishedFinal),
+                finalFeedback: publishedFinal?.feedback || null,
+                periods: (periods || []).map(period => ({ ...period, evaluations: evaluations.filter(e => e.periodId === period.id) })),
                 maxScore: 20,
             },
         };
@@ -238,7 +258,9 @@ export async function getStudentAcademicData(studentId, classroomId) {
 
     return {
         courses,
-        schedule: { days, breaks: [] },
+        schedule: { days, breaks: [], grade: null, section: null, academicYear: null },
+        periods: periods || [],
+        finalResults: finalResults || [],
         assessments: assessments || [],
         grades: grades || [],
     };
