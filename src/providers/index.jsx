@@ -1,11 +1,12 @@
 import { AuthProvider } from "../context/AuthContext";
+import { StudentPortalProvider } from "../context/StudentPortalContext";
 
-export default function Providers ({ children }) {
+export default function Providers({ children }) {
     return (
-        <>
-            <AuthProvider>
+        <AuthProvider>
+            <StudentPortalProvider>
                 {children}
-            </AuthProvider>
-        </>
-    )
+            </StudentPortalProvider>
+        </AuthProvider>
+    );
 }
