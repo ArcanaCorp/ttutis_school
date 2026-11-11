@@ -59,7 +59,8 @@ export default function Login() {
                     {!isConfigured && <TextApp size="xs" color="#b42318">Falta configurar la conexión con TTUTIS en .env.local.</TextApp>}
                     {!!error && <TextApp size="xs" color="#b42318" accessibilityRole="alert">{error}</TextApp>}
                     <TextApp size="xs" color="#2563eb" onPress={() => setGuardianMode(value => !value)}>{guardianMode ? 'Ingresar como alumno' : 'Ingresar como apoderado'}</TextApp>
-                    {guardianMode && <TextApp size="xs" color="#767676" onPress={() => router.push('/guardian-register')}>¿No tienes cuenta? Regístrate y vincula a tu hijo</TextApp>}
+                    {guardianMode && <TextApp size="xs" color="#767676" onPress={() => router.push('/guardian-register')}>¿No tienes cuenta? Regístrate</TextApp>}
+                    {guardianMode && <TextApp size="xs" color="#2563eb" onPress={() => router.push('/guardian-claim')}>Ya tengo cuenta: ingresar código de vinculación</TextApp>}
                     <TextApp size="xs" color="#2563eb" onPress={() => router.push('/recover')}>¿Olvidaste tu contraseña?</TextApp>
                     <Button fullWidth size="lg" loading={loading} disabled={!isConfigured || !(guardianMode ? email.trim() : code.trim()) || !password || loading} onPress={handleSignIn}>Ingresar</Button>
                 </View>
