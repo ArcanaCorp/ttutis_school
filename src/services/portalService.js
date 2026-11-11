@@ -66,7 +66,11 @@ export async function getStudentPortalContext(identity = null) {
     throwIfError(enrollmentError, 'No se pudo cargar tu matrícula.');
 
     const currentEnrollment = (enrollments || []).find(item => item.classrooms?.status === 'ACTIVE') || enrollments?.[0] || null;
-    return { identity, student, enrollments: enrollments || [], currentEnrollment };
+    const { data: institution, error: institutionError } = await client.from('institutions')
+        .select('id, trade_name, legal_name, email, phone, website, logo_path, description, timezone')
+        .eq('id', student.institution_id).maybeSingle();
+    throwIfError(institutionError, 'No se pudo cargar la información del colegio.');
+    return { identity, student, institution, enrollments: enrollments || [], currentEnrollment };
 }
 
 export async function getGuardianChildren() {
@@ -117,6 +121,19 @@ export async function getStudentAnnouncements(studentId) {
             date: item.visible_from,
             priority: item.priority === 'HIGH' ? 'high' : item.priority === 'MEDIUM' ? 'medium' : 'low',
         }));
+}
+
+
+export async function getStudentInstitutionalContent(institutionId, classroomId, studentId, contentType) {
+    const client = requireClient();
+    const now = new Date().toISOString();
+    const { data, error } = await client.from('institutional_content')
+        .select('id,content_type,title,description,image_path,cta_label,cta_url,starts_at,ends_at')
+        .eq('institution_id',institutionId).eq('content_type',contentType).eq('status','PUBLISHED')
+        .lte('starts_at',now).or(`ends_at.is.null,ends_at.gte.${now}`)
+        .order('starts_at',{ascending:false}).limit(20);
+    throwIfError(error,'No se pudo cargar el contenido institucional.');
+    return (data||[]).filter(item=>true);
 }
 
 export async function getStudentAttendance(studentId) {
