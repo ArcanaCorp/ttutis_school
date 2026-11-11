@@ -13,7 +13,7 @@ test('only an explicit ABSENCE event is a recorded absence', () => {
 });
 test('weighted averages normalize assessment scales before applying weights', () => {
   const value = calculateWeightedAverage([{ grade: 18, maxScore: 20, weight: 2 }, { grade: 10, maxScore: 10, weight: 1 }], 20);
-  assert.equal(value, 17.333333333333332);
+  assert.equal(value, 18.666666666666668);
 });
 test('simple average ignores assessment weights', () => {
   const value = calculateWeightedAverage([{ grade: 18, maxScore: 20, weight: 2 }, { grade: 10, maxScore: 10, weight: 1 }], 20, 'SIMPLE');
