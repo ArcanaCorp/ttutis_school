@@ -1,100 +1,28 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useAuth } from './AuthContext';
-import {
-    getStudentPortalContext,
-    getStudentAnnouncements,
-    getStudentAttendance,
-    getStudentAcademicData,
-} from '../services/portalService';
-
+import { getPortalIdentity, getStudentPortalContext, getStudentAnnouncements, getStudentAttendance, getStudentAcademicData, getGuardianChildren } from '../services/portalService';
 const StudentPortalContext = createContext(null);
-
-async function fetchStudentPortal() {
-    const context = await getStudentPortalContext();
-    const studentId = context.student.id;
-    const classroomId = context.currentEnrollment?.classroom_id || null;
-    const [announcements, attendance, academic] = await Promise.all([
-        getStudentAnnouncements(studentId),
-        getStudentAttendance(studentId),
-        getStudentAcademicData(studentId, classroomId),
-    ]);
-
-    return { ...context, announcements, attendance, academic };
+async function settle(promise, fallback) { try { return await promise; } catch (error) { console.warn('[PORTAL_SECTION]', error?.message || error); return fallback; } }
+async function fetchPortal() {
+ const identity = await getPortalIdentity();
+ if (identity.roles.includes('STUDENT')) {
+  const context = await getStudentPortalContext(identity), studentId=context.student.id, classroomId=context.currentEnrollment?.classroom_id || null;
+  const [announcements,attendance,academic]=await Promise.all([
+   settle(getStudentAnnouncements(studentId),[]),settle(getStudentAttendance(studentId),[]),
+   settle(getStudentAcademicData(studentId,classroomId,context.currentEnrollment),{courses:[],schedule:{days:[],breaks:[]},assessments:[],grades:[],periods:[],finalResults:[]})
+  ]);
+  return {...context,identity,portalRole:'STUDENT',announcements,attendance,academic};
+ }
+ if (identity.roles.includes('GUARDIAN')) return {identity,portalRole:'GUARDIAN',children:await getGuardianChildren()};
+ throw new Error('Tu cuenta no tiene acceso al portal de alumnos o apoderados.');
 }
-
-export function StudentPortalProvider({ children }) {
-    const { session } = useAuth();
-    const userId = session?.user?.id;
-    const [portalState, setPortalState] = useState({
-        userId: null,
-        data: null,
-        loading: false,
-        error: null,
-    });
-
-    const refresh = useCallback(async () => {
-        if (!userId) return;
-
-        setPortalState((current) => ({
-            ...current,
-            userId,
-            loading: true,
-            error: null,
-        }));
-
-        try {
-            const data = await fetchStudentPortal();
-            setPortalState({ userId, data, loading: false, error: null });
-        } catch (loadError) {
-            setPortalState({
-                userId,
-                data: null,
-                loading: false,
-                error: loadError?.message || 'No se pudo cargar tu información.',
-            });
-        }
-    }, [userId]);
-
-    useEffect(() => {
-        if (!userId) return undefined;
-
-        let active = true;
-        const load = async () => {
-            try {
-                const data = await fetchStudentPortal();
-                if (active) setPortalState({ userId, data, loading: false, error: null });
-            } catch (loadError) {
-                if (active) {
-                    setPortalState({
-                        userId,
-                        data: null,
-                        loading: false,
-                        error: loadError?.message || 'No se pudo cargar tu información.',
-                    });
-                }
-            }
-        };
-
-        load();
-        return () => {
-            active = false;
-        };
-    }, [userId]);
-
-    // A state snapshot is only visible to the account that loaded it. This
-    // prevents a previous user's data from flashing after sign-out/account swap.
-    const isCurrentUser = portalState.userId === userId && Boolean(userId);
-    const data = isCurrentUser ? portalState.data : null;
-    const loading = Boolean(userId) && (!isCurrentUser || portalState.loading);
-    const error = isCurrentUser ? portalState.error : null;
-
-    const value = useMemo(() => ({ data, loading, error, refresh }), [data, loading, error, refresh]);
-
-    return <StudentPortalContext.Provider value={value}>{children}</StudentPortalContext.Provider>;
+export function StudentPortalProvider({children}) {
+ const {session}=useAuth(), userId=session?.user?.id;
+ const [state,setState]=useState({userId:null,data:null,loading:false,error:null});
+ const refresh=useCallback(async()=>{if(!userId)return;setState(x=>({...x,userId,loading:true,error:null}));try{const data=await fetchPortal();setState({userId,data,loading:false,error:null});}catch(error){setState({userId,data:null,loading:false,error:error?.message||'No se pudo cargar tu información.'});}},[userId]);
+ useEffect(()=>{if(!userId){setState({userId:null,data:null,loading:false,error:null});return undefined;}let active=true;fetchPortal().then(data=>{if(active)setState({userId,data,loading:false,error:null});}).catch(error=>{if(active)setState({userId,data:null,loading:false,error:error?.message||'No se pudo cargar tu información.'});});return()=>{active=false;};},[userId]);
+ const current=state.userId===userId&&Boolean(userId);
+ const value=useMemo(()=>({data:current?state.data:null,loading:Boolean(userId)&&(!current||state.loading),error:current?state.error:null,refresh}),[current,state,userId,refresh]);
+ return <StudentPortalContext.Provider value={value}>{children}</StudentPortalContext.Provider>;
 }
-
-export function useStudentPortal() {
-    const value = useContext(StudentPortalContext);
-    if (!value) throw new Error('useStudentPortal debe utilizarse dentro de StudentPortalProvider.');
-    return value;
-}
+export function useStudentPortal(){const value=useContext(StudentPortalContext);if(!value)throw new Error('useStudentPortal debe utilizarse dentro de StudentPortalProvider.');return value;}
