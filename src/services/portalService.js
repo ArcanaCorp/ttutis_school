@@ -233,8 +233,6 @@ export async function getStudentAcademicData(studentId, classroomId, currentEnro
                     subject: assignment?.subjects?.name || 'Clase',
                     classroom: period.classroom_label || null,
                     teacher: teacherNames.get(assignment?.teacher_membership_id) || null,
-                    classroom: period.classroom_label || null,
-                    teacher: teacherNames.get(assignment?.teacher_membership_id) || null,
                 };
             }),
     }));
@@ -258,8 +256,9 @@ export async function getStudentAcademicData(studentId, classroomId, currentEnro
                 };
             });
         const graded = evaluations.filter(item => item.grade !== null);
-        const weighted = graded.reduce((acc, item) => { const weight = Number(item.weight || 1); acc.total += (Number(item.grade) / Number(item.maxScore || 20)) * 20 * weight; acc.weight += weight; return acc; }, { total: 0, weight: 0 });
-        const currentAverage = weighted.weight ? weighted.total / weighted.weight : null;
+        const scale = Number(gradingSettings.scale) > 0 ? Number(gradingSettings.scale) : 20;
+        const method = gradingSettings.method === 'SIMPLE' ? 'SIMPLE' : 'WEIGHTED';
+        const currentAverage = portalRules.calculateWeightedAverage(graded, scale, method);
         const publishedFinal = (finalResults || []).find(result => result.course_assignment_id === item.id && !result.academic_period_id) || null;
         return {
             id: item.id,
