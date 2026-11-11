@@ -9,7 +9,7 @@ async function fetchPortal(selectedChildId=null){
   const context=await getStudentPortalContext(identity),studentId=context.student.id,classroomId=context.currentEnrollment?.classroom_id||null,institutionId=context.student.institution_id;
   const [announcements,attendance,academic,recommendations,promotions]=await Promise.all([
    settle(getStudentAnnouncements(studentId),[]),settle(getStudentAttendance(studentId),[]),
-   settle(getStudentAcademicData(studentId,classroomId,context.currentEnrollment),{courses:[],schedule:{days:[],breaks:[]},assessments:[],grades:[],periods:[],finalResults:[]}),
+   settle(getStudentAcademicData(studentId,classroomId,context.currentEnrollment,context.institution?.grading_settings||{}),{courses:[],schedule:{days:[],breaks:[]},assessments:[],grades:[],periods:[],finalResults:[]}),
    settle(getStudentInstitutionalContent(institutionId,classroomId,studentId,'RECOMMENDATION'),[]),
    settle(getStudentInstitutionalContent(institutionId,classroomId,studentId,'PROMOTION'),[])
   ]);
