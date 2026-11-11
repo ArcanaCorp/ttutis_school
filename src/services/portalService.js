@@ -1,3 +1,4 @@
+import portalRules from '../utils/portalRules.cjs';
 import { supabase } from '../lib/supabase';
 
 function requireClient() {
@@ -67,7 +68,7 @@ export async function getStudentPortalContext(identity = null) {
 
     const currentEnrollment = (enrollments || []).find(item => item.classrooms?.status === 'ACTIVE') || enrollments?.[0] || null;
     const { data: institution, error: institutionError } = await client.from('institutions')
-        .select('id, trade_name, legal_name, email, phone, website, logo_path, description, timezone')
+        .select('id, trade_name, legal_name, email, phone, website, logo_path, description, timezone, grading_settings')
         .eq('id', student.institution_id).maybeSingle();
     throwIfError(institutionError, 'No se pudo cargar la información del colegio.');
     return { identity, student, institution, enrollments: enrollments || [], currentEnrollment };
@@ -148,13 +149,11 @@ export async function getStudentAttendance(studentId) {
     return (data || []).map(item => ({
         ...item,
         date: item.attendance_local_date,
-        status: item.attendance_status === 'PRESENT' ? 'punctual'
-            : item.attendance_status === 'LATE' ? 'late'
-            : item.attendance_status === 'ABSENCE' ? 'absent' : 'unknown',
+        status: portalRules.normalizeAttendanceStatus(item.attendance_status),
     }));
 }
 
-export async function getStudentAcademicData(studentId, classroomId, currentEnrollment = null) {
+export async function getStudentAcademicData(studentId, classroomId, currentEnrollment = null, gradingSettings = {}) {
     const client = requireClient();
     if (!classroomId) return { courses: [], schedule: [], assessments: [], grades: [] };
 
@@ -289,7 +288,7 @@ export async function getStudentAcademicData(studentId, classroomId, currentEnro
                 finalized: Boolean(publishedFinal),
                 finalFeedback: publishedFinal?.feedback || null,
                 periods: (periods || []).map(period => ({ ...period, evaluations: evaluations.filter(e => e.periodId === period.id) })),
-                maxScore: 20,
+                maxScore: scale,
             },
         };
     });
@@ -412,7 +411,7 @@ export async function getGuardianChildOverview(studentId, permissions = {}) {
 
     const enrollment = enrollmentResult.data?.[0] || null;
     const academic = enrollment?.classroom_id
-        ? await getStudentAcademicData(studentId, enrollment.classroom_id, enrollment)
+        ? await getStudentAcademicData(studentId, enrollment.classroom_id, enrollment, (await client.from('institutions').select('grading_settings').eq('id', studentResult.data?.institution_id).maybeSingle()).data?.grading_settings || {})
         : { courses: [], schedule: [], assessments: [], grades: [] };
 
     return {
