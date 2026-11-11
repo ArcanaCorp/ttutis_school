@@ -131,6 +131,7 @@ export default function ProfileTab() {
     const router = useRouter();
     const [loggingOut, setLoggingOut] = useState(false);
 
+    const studentFullName = data?.student ? `${data.student.first_names} ${data.student.last_names}`.trim() : profile?.fullName || 'Estudiante';
     const classroom = data?.currentEnrollment?.classrooms;
     const academicYear = data?.currentEnrollment?.academic_years?.name;
     const educationLevel = {
@@ -156,7 +157,7 @@ export default function ProfileTab() {
             
             <View style={styles.banner}>
                 <View style={styles.avatar}>
-                    <Avatar name={profile?.fullName || "Estudiante"} size={100}/>
+                    <Avatar name={studentFullName} size={100}/>
                 </View>
                 <Image source={require("../../../assets/images/doodle.png")} style={styles.bannerImage} />
             </View>
@@ -164,7 +165,7 @@ export default function ProfileTab() {
             <View style={styles.main}>
                 
                 <View style={styles.profileInfo}>
-                    <TextApp size="2xl" variant="semibold">{profile?.fullName}</TextApp>
+                    <TextApp size="2xl" variant="semibold">{studentFullName}</TextApp>
                     <TextApp size="sm" color={theme.colors.text.secondary}>TTUTIS · Información académica</TextApp>
                     <View style={styles.academicBadge}>
                         <TextApp size="xs" variant="medium">{educationLevel || 'Nivel pendiente'} · {classroom?.grade_label || 'Grado pendiente'} {classroom?.section_name || ''}</TextApp>
