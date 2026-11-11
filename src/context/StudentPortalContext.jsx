@@ -9,71 +9,69 @@ import {
 
 const StudentPortalContext = createContext(null);
 
+async function fetchStudentPortal() {
+    const context = await getStudentPortalContext();
+    const studentId = context.student.id;
+    const classroomId = context.currentEnrollment?.classroom_id || null;
+    const [announcements, attendance, academic] = await Promise.all([
+        getStudentAnnouncements(studentId),
+        getStudentAttendance(studentId),
+        getStudentAcademicData(studentId, classroomId),
+    ]);
+
+    return { ...context, announcements, attendance, academic };
+}
+
 export function StudentPortalProvider({ children }) {
     const { session } = useAuth();
     const userId = session?.user?.id;
-    const [data, setData] = useState(null);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
+    const [portalState, setPortalState] = useState({
+        userId: null,
+        data: null,
+        loading: false,
+        error: null,
+    });
 
     const refresh = useCallback(async () => {
-        if (!userId) {
-            setData(null);
-            setError(null);
-            setLoading(false);
-            return;
-        }
+        if (!userId) return;
 
-        setLoading(true);
-        setError(null);
+        setPortalState((current) => ({
+            ...current,
+            userId,
+            loading: true,
+            error: null,
+        }));
+
         try {
-            const context = await getStudentPortalContext();
-            const studentId = context.student.id;
-            const classroomId = context.currentEnrollment?.classroom_id || null;
-            const [announcements, attendance, academic] = await Promise.all([
-                getStudentAnnouncements(studentId),
-                getStudentAttendance(studentId),
-                getStudentAcademicData(studentId, classroomId),
-            ]);
-            setData({ ...context, announcements, attendance, academic });
+            const data = await fetchStudentPortal();
+            setPortalState({ userId, data, loading: false, error: null });
         } catch (loadError) {
-            setData(null);
-            setError(loadError?.message || 'No se pudo cargar tu información.');
-        } finally {
-            setLoading(false);
+            setPortalState({
+                userId,
+                data: null,
+                loading: false,
+                error: loadError?.message || 'No se pudo cargar tu información.',
+            });
         }
     }, [userId]);
 
-    // Load on authentication changes. State updates happen after asynchronous
-    // work, not synchronously in the effect body.
     useEffect(() => {
-        if (!userId) {
-            setData(null);
-            setError(null);
-            return undefined;
-        }
+        if (!userId) return undefined;
 
         let active = true;
         const load = async () => {
-            setLoading(true);
-            setError(null);
             try {
-                const context = await getStudentPortalContext();
-                const studentId = context.student.id;
-                const classroomId = context.currentEnrollment?.classroom_id || null;
-                const [announcements, attendance, academic] = await Promise.all([
-                    getStudentAnnouncements(studentId),
-                    getStudentAttendance(studentId),
-                    getStudentAcademicData(studentId, classroomId),
-                ]);
-                if (active) setData({ ...context, announcements, attendance, academic });
+                const data = await fetchStudentPortal();
+                if (active) setPortalState({ userId, data, loading: false, error: null });
             } catch (loadError) {
                 if (active) {
-                    setData(null);
-                    setError(loadError?.message || 'No se pudo cargar tu información.');
+                    setPortalState({
+                        userId,
+                        data: null,
+                        loading: false,
+                        error: loadError?.message || 'No se pudo cargar tu información.',
+                    });
                 }
-            } finally {
-                if (active) setLoading(false);
             }
         };
 
@@ -82,6 +80,13 @@ export function StudentPortalProvider({ children }) {
             active = false;
         };
     }, [userId]);
+
+    // A state snapshot is only visible to the account that loaded it. This
+    // prevents a previous user's data from flashing after sign-out/account swap.
+    const isCurrentUser = portalState.userId === userId && Boolean(userId);
+    const data = isCurrentUser ? portalState.data : null;
+    const loading = Boolean(userId) && (!isCurrentUser || portalState.loading);
+    const error = isCurrentUser ? portalState.error : null;
 
     const value = useMemo(() => ({ data, loading, error, refresh }), [data, loading, error, refresh]);
 
