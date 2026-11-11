@@ -40,6 +40,7 @@ export default function TabsLayout() {
                 tabBarIconStyle: { marginTop: 2 },
             }}
         >
+            <Tabs.Screen name="digital-id" options={{ href: null }} />
             <Tabs.Screen name="home" options={{
                 title: 'Inicio',
                 tabBarIcon: ({ color, size, focused }) => <House size={size} color={color} strokeWidth={focused ? 2 : 1.5} />,
