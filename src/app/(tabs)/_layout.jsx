@@ -1,5 +1,5 @@
 import { Tabs, Redirect } from 'expo-router';
-import { House, CalendarDays, BookOpen, Bell, UserRound } from 'lucide-react-native';
+import { House, CalendarDays, BookOpen, Bell, UserRound, ClipboardCheck } from 'lucide-react-native';
 import { theme } from '../../constants/theme';
 import { ActivityIndicator, View } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
@@ -48,6 +48,7 @@ export default function TabsLayout() {
                 title: 'Horario',
                 tabBarIcon: ({ color, size, focused }) => <CalendarDays size={size} color={color} strokeWidth={focused ? 2 : 1.5} />,
             }} />
+            <Tabs.Screen name="attendance" options={{ title: 'Asistencia', tabBarIcon: ({ color, size, focused }) => <ClipboardCheck size={size} color={color} strokeWidth={focused ? 2 : 1.5} /> }} />
             <Tabs.Screen name="courses" options={{
                 title: 'Cursos',
                 tabBarIcon: ({ color, size, focused }) => <BookOpen size={size} color={color} strokeWidth={focused ? 2 : 1.5} />,
