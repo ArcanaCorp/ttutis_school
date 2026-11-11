@@ -1,4 +1,4 @@
-import { Alert, Image, StyleSheet, View } from "react-native";
+import { Alert, Image, StyleSheet, View, Pressable } from "react-native";
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { ChevronRight, UserRound, GraduationCap, Settings2, CircleHelp, FileText, ShieldCheck, Bell, Users, Building2, Bus, LogOut } from "lucide-react-native";
@@ -93,7 +93,7 @@ const profileSections = [
     },
 ];
 
-function ProfileSection({ title, items }) {
+function ProfileSection({ title, items, router }) {
     return (
         <View style={styles.section}>
             <TextApp size="sm" variant="semibold" style={styles.sectionTitle}>{title}</TextApp>
@@ -105,7 +105,7 @@ function ProfileSection({ title, items }) {
                     <View key={item.route}>
                         {index > 0 && <Divider />}
 
-                        <View style={styles.item}>
+                        <Pressable style={styles.item} onPress={() => router.push(item.route)} accessibilityRole="button">
                             <View style={styles.itemIcon}>
                                 <Icon size={20} color={theme.colors.text.secondary} />
                             </View>
@@ -117,7 +117,7 @@ function ProfileSection({ title, items }) {
                             </View>
 
                             <ChevronRight size={20} color={theme.colors.text.secondary} />
-                        </View>
+                        </Pressable>
                     </View>
                 );
             })}
@@ -173,7 +173,7 @@ export default function ProfileTab() {
                 </View>
 
                 {profileSections.map((section) => (
-                    <ProfileSection key={section.title} title={section.title} items={section.items}/>
+                    <ProfileSection key={section.title} title={section.title} items={section.items} router={router}/>
                 ))}
 
                 <Button variant="dangerSoft" fullWidth rounded="full" icon={LogOut} loading={loggingOut} onPress={handleSignOut}>Cerrar sesión</Button>
