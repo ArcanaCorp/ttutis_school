@@ -95,6 +95,8 @@ export async function getGuardianChildren() {
 
 export async function getStudentAnnouncements(studentId) {
     const client = requireClient();
+    const { data: authData } = await client.auth.getUser();
+    const currentProfileId = authData?.user?.id;
     const now = new Date().toISOString();
     const { data, error } = await client
         .from('student_updates')
@@ -108,7 +110,7 @@ export async function getStudentAnnouncements(studentId) {
         .filter(item => !studentId || !item.student_id || item.student_id === studentId)
         .map(item => ({
             ...item,
-            isRead: false,
+            isRead: (item.student_update_reads || []).some(read => read.profile_id === currentProfileId),
             attachments: item.student_update_attachments || [],
             type: item.update_type === 'ANNOUNCEMENT' ? 'Anuncio' : item.update_type,
             message: item.body,
@@ -124,7 +126,7 @@ export async function getStudentAttendance(studentId) {
         .select('id, event_type, occurred_at, attendance_status, attendance_local_date, justification_status, justification_notes')
         .eq('student_id', studentId)
         .order('occurred_at', { ascending: false })
-        .limit(60);
+        .limit(500);
     throwIfError(error, 'No se pudo cargar el historial de asistencia.');
     return (data || []).map(item => ({
         ...item,
