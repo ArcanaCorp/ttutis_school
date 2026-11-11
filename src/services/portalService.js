@@ -104,7 +104,15 @@ export async function getStudentAnnouncements(studentId) {
         .order('visible_from', { ascending: false });
     throwIfError(error, 'No se pudieron cargar los avisos.');
     // RLS decides which global, classroom and personal updates this account can read.
-    return (data || []).filter(item => !studentId || !item.student_id || item.student_id === studentId);
+    return (data || [])
+        .filter(item => !studentId || !item.student_id || item.student_id === studentId)
+        .map(item => ({
+            ...item,
+            type: item.update_type === 'ANNOUNCEMENT' ? 'Anuncio' : item.update_type,
+            message: item.body,
+            date: item.visible_from,
+            priority: item.priority === 'HIGH' ? 'high' : item.priority === 'MEDIUM' ? 'medium' : 'low',
+        }));
 }
 
 export async function getStudentAttendance(studentId) {
@@ -116,7 +124,13 @@ export async function getStudentAttendance(studentId) {
         .order('occurred_at', { ascending: false })
         .limit(60);
     throwIfError(error, 'No se pudo cargar el historial de asistencia.');
-    return data || [];
+    return (data || []).map(item => ({
+        ...item,
+        date: item.attendance_local_date,
+        status: item.attendance_status === 'PRESENT' ? 'punctual'
+            : item.attendance_status === 'LATE' ? 'late'
+            : item.attendance_status === 'ABSENCE' ? 'absent' : 'unknown',
+    }));
 }
 
 export async function getStudentAcademicData(studentId, classroomId) {
