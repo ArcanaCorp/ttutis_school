@@ -337,12 +337,21 @@ export async function saveMyNotificationPreferences(values) {
 }
 export async function getStudentAttendanceHistory(studentId, fromDate, toDate) {
     const client = requireClient();
-    const { data, error } = await client.from('attendance_events')
-        .select('id,event_type,occurred_at,attendance_status,attendance_local_date,justification_status,justification_notes')
-        .eq('student_id',studentId).gte('attendance_local_date',fromDate).lte('attendance_local_date',toDate)
-        .order('occurred_at',{ascending:false}).limit(500);
-    throwIfError(error,'No se pudo cargar el historial de asistencia.');
-    return data || [];
+    const [eventsResult,justificationsResult] = await Promise.all([
+        client.from('attendance_events').select('id,event_type,occurred_at,attendance_status,attendance_local_date,justification_status,justification_notes')
+            .eq('student_id',studentId).gte('attendance_local_date',fromDate).lte('attendance_local_date',toDate).order('occurred_at',{ascending:false}).limit(500),
+        client.from('attendance_justifications').select('id,attendance_local_date,reason,status,created_at,reviewed_at,review_notes')
+            .eq('student_id',studentId).gte('attendance_local_date',fromDate).lte('attendance_local_date',toDate).order('created_at',{ascending:false}).limit(100),
+    ]);
+    throwIfError(eventsResult.error,'No se pudo cargar el historial de asistencia.');
+    throwIfError(justificationsResult.error,'No se pudieron cargar las justificaciones.');
+    const events=eventsResult.data||[];
+    const justifications=(justificationsResult.data||[]).map(item=>({
+        id:`justification-${item.id}`,record_type:'JUSTIFICATION',event_type:'JUSTIFICATION',
+        occurred_at:item.created_at,date:item.attendance_local_date,attendance_local_date:item.attendance_local_date,
+        attendance_status:null,justification_status:item.status,justification_notes:item.reason,reviewed_at:item.reviewed_at,review_notes:item.review_notes
+    }));
+    return [...events,...justifications].sort((a,b)=>new Date(b.occurred_at)-new Date(a.occurred_at));
 }
 
 export async function submitAttendanceJustification(studentId, institutionId, attendanceDate, reason) {
