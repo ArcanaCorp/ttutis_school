@@ -1,29 +1,32 @@
-import { StyleSheet, View } from "react-native";
+import { ScrollView, StyleSheet, View, ActivityIndicator } from "react-native";
 import Screen from "../../components/ui/Screen";
 import TextApp from "../../components/ui/TextApp";
 import { theme } from "../../constants/theme";
-import { studentPortal } from "../../db/db";
 import Card from "../../components/notifications/Card";
+import { useStudentPortal } from "../../context/StudentPortalContext";
 
-export default function NotificationsTab () {
-
-    const { announcements } = studentPortal;
+export default function NotificationsTab() {
+    const { data, loading, error, refresh } = useStudentPortal();
+    const announcements = data?.announcements || [];
 
     return (
         <Screen>
             <View style={styles.header}>
                 <View>
                     <TextApp size="2xl" variant="bold">Avisos</TextApp>
-                    <TextApp size="xs" color="#767676">Mantente al día con las novedades de tu colegio.</TextApp>
+                    <TextApp size="xs" color="#767676">Anuncios de tu institución, aula y dirigidos a ti.</TextApp>
                 </View>
             </View>
-            <View style={styles.main}>
-                {announcements.map((item) => (
-                    <Card key={item.id} item={item}/>
-                ))}
-            </View>
+            <ScrollView contentContainerStyle={styles.main} showsVerticalScrollIndicator={false}>
+                {loading && <ActivityIndicator color={theme.colors.primary.DEFAULT} />}
+                {!!error && <TextApp size="sm" color={theme.colors.state.error}>{error}</TextApp>}
+                {!loading && !error && announcements.length === 0 && (
+                    <TextApp size="sm" color={theme.colors.text.secondary}>No tienes avisos disponibles por el momento.</TextApp>
+                )}
+                {announcements.map(item => <Card key={item.id} item={item} />)}
+            </ScrollView>
         </Screen>
-    )
+    );
 }
 
 const styles = StyleSheet.create({
@@ -33,12 +36,9 @@ const styles = StyleSheet.create({
         paddingVertical: 24,
         paddingHorizontal: 20,
         justifyContent: 'space-between',
-        borderBottomWidth: .5,
+        borderBottomWidth: 0.5,
         borderBottomColor: '#CCCCCC',
         backgroundColor: theme.colors.background.DEFAULT,
     },
-    main: {
-        gap: 12,
-        paddingHorizontal: 24,
-    },
-})
+    main: { gap: 12, paddingHorizontal: 24, paddingVertical: 16 },
+});
