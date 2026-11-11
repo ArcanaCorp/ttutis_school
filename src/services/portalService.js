@@ -125,10 +125,17 @@ export async function getStudentAcademicData(studentId, classroomId) {
 
     const { data: assignments, error: assignmentsError } = await client
         .from('course_assignments')
-        .select('id, subject_id, teacher_membership_id, subjects(id, code, name, description), memberships!course_assignments_teacher_membership_id_fkey(full_name)')
+        .select('id, subject_id, teacher_membership_id, subjects(id, code, name, description)')
         .eq('classroom_id', classroomId)
         .eq('status', 'ACTIVE');
     throwIfError(assignmentsError, 'No se pudieron cargar tus cursos.');
+
+    const teacherIds = [...new Set((assignments || []).map(item => item.teacher_membership_id).filter(Boolean))];
+    const { data: teachers, error: teachersError } = teacherIds.length
+        ? await client.from('memberships').select('id, full_name').in('id', teacherIds)
+        : { data: [], error: null };
+    throwIfError(teachersError, 'No se pudo cargar la información de tus docentes.');
+    const teacherNames = new Map((teachers || []).map(item => [item.id, item.full_name]));
 
     const assignmentIds = (assignments || []).map(item => item.id);
     const { data: schedule, error: scheduleError } = assignmentIds.length
@@ -159,7 +166,7 @@ export async function getStudentAcademicData(studentId, classroomId) {
         courses: (assignments || []).map(item => ({
             id: item.id,
             subject: item.subjects,
-            teacher: item.memberships?.full_name || null,
+            teacher: teacherNames.get(item.teacher_membership_id) || null,
         })),
         schedule: schedule || [],
         assessments: assessments || [],
