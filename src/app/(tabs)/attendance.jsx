@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 import { CalendarDays, AlertCircle } from 'lucide-react-native';
 import Screen from '../../components/ui/Screen';
@@ -16,7 +16,7 @@ export default function AttendanceTab(){
  const studentId=data?.student?.id, institutionId=data?.student?.institution_id;
  const fromDate=`${month.getFullYear()}-${String(month.getMonth()+1).padStart(2,'0')}-01`;
  const toDate=`${month.getFullYear()}-${String(month.getMonth()+1).padStart(2,'0')}-${String(new Date(month.getFullYear(),month.getMonth()+1,0).getDate()).padStart(2,'0')}`;
- useMemo(()=>{let active=true;if(studentId)getStudentAttendanceHistory(studentId,fromDate,toDate).then(rows=>{if(active)setHistory(rows);}).catch(()=>setHistory([]));return()=>{active=false;};},[studentId,fromDate,toDate]);
+ useEffect(()=>{let active=true;if(studentId)getStudentAttendanceHistory(studentId,fromDate,toDate).then(rows=>{if(active)setHistory(rows);}).catch(()=>{if(active)setHistory([]);});return()=>{active=false;};},[studentId,fromDate,toDate]);
  const filtered=history;
  const count=s=>filtered.filter(x=>x.attendance_status===s).length;
  const submit=async()=>{setSending(true);try{await submitAttendanceJustification(studentId,institutionId,date,reason);setReason('');Alert.alert('Solicitud enviada','El colegio revisará tu justificación.');await refresh();}catch(e){Alert.alert('No se pudo enviar',e.message);}finally{setSending(false);}};
