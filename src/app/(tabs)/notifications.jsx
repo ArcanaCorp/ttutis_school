@@ -6,7 +6,7 @@ import Card from "../../components/notifications/Card";
 import { useStudentPortal } from "../../context/StudentPortalContext";
 
 export default function NotificationsTab() {
-    const { data, loading, error, refresh } = useStudentPortal();
+    const { data, loading, error } = useStudentPortal();
     const announcements = data?.announcements || [];
 
     return (
