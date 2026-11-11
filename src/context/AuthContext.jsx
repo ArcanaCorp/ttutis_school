@@ -7,14 +7,11 @@ const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
     const [session, setSession] = useState(null);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(Boolean(supabase));
     const [authError, setAuthError] = useState(null);
 
     useEffect(() => {
-        if (!supabase) {
-            setLoading(false);
-            return undefined;
-        }
+        if (!supabase) return undefined;
 
         let mounted = true;
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
