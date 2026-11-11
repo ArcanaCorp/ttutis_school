@@ -359,6 +359,26 @@ export async function getStudentAttendanceHistory(studentId, fromDate, toDate) {
     throwIfError(error,'No se pudo cargar el historial de asistencia.');
     return data || [];
 }
+
+export async function submitAttendanceJustification(studentId, institutionId, attendanceDate, reason) {
+    const client = requireClient();
+    const clean = String(reason || '').trim();
+    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(attendanceDate || '') || clean.length < 5 || clean.length > 2000) {
+        throw new Error('Indica una fecha válida y explica el motivo (5 a 2000 caracteres).');
+    }
+    const { data: auth, error: authError } = await client.auth.getUser();
+    throwIfError(authError, 'No se pudo validar tu sesión.');
+    if (!auth?.user) throw new Error('Tu sesión ha expirado.');
+    const { error } = await client.from('attendance_justifications').insert({
+        institution_id: institutionId,
+        student_id: studentId,
+        attendance_local_date: attendanceDate,
+        reason: clean,
+        submitted_by_profile_id: auth.user.id,
+    });
+    throwIfError(error, 'No se pudo enviar la justificación. Puede que ya exista una solicitud para esa fecha.');
+}
+
 export async function registerPushToken(token, platform) {
     const client = requireClient();
     const { data: auth } = await client.auth.getUser();
