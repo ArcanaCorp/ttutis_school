@@ -192,20 +192,6 @@ export async function getStudentAcademicData(studentId, classroomId, currentEnro
         .order('assessment_date', { ascending: false });
     throwIfError(assessmentsError, 'No se pudieron cargar tus evaluaciones.');
 
-    const { data: periods, error: periodsError } = await client
-        .from('academic_periods')
-        .select('id, name, code, period_order, starts_on, ends_on, status')
-        .eq('academic_year_id', (assignments || [])[0]?.academic_year_id || '')
-        .order('period_order');
-    throwIfError(periodsError, 'No se pudieron cargar los periodos académicos.');
-
-    const { data: finalResults, error: finalResultsError } = await client
-        .from('student_course_results')
-        .select('id, course_assignment_id, academic_period_id, final_score, maximum_score, feedback, status, published_at')
-        .eq('student_id', studentId)
-        .eq('status', 'PUBLISHED');
-    throwIfError(finalResultsError, 'No se pudieron cargar los resultados finales.');
-
     const academicYearId = assignments?.[0]?.academic_year_id || null;
     const { data: periods, error: periodsError } = academicYearId
         ? await client.from('academic_periods').select('id, name, code, period_order, starts_on, ends_on, status').eq('academic_year_id', academicYearId).order('period_order')
