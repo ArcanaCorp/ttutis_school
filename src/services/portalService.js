@@ -79,7 +79,7 @@ export async function getGuardianChildren() {
     const identity = await getPortalIdentity();
     const { data: links, error: linksError } = await client
         .from('guardian_student_links')
-        .select('id, institution_id, student_id, relationship, can_view_attendance, can_view_grades, can_view_behavior, can_view_fees, can_receive_notifications, status, students(id, first_names, last_names, student_code, status)')
+        .select('id, institution_id, student_id, relationship, can_view_attendance, can_view_grades, can_view_behavior, can_view_fees, can_view_transport, can_receive_notifications, status, students(id, first_names, last_names, student_code, status)')
         .eq('guardian_profile_id', identity.userId)
         .eq('status', 'ACTIVE');
     throwIfError(linksError, 'No se pudieron cargar los hijos vinculados a tu cuenta.');
@@ -92,6 +92,7 @@ export async function getGuardianChildren() {
             grades: link.can_view_grades,
             behavior: link.can_view_behavior,
             fees: link.can_view_fees,
+            transport: link.can_view_transport,
             notifications: link.can_receive_notifications,
         },
         student: link.students,
