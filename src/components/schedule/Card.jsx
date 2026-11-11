@@ -200,13 +200,10 @@ function PeriodItem({ period, index, breaks = [] }) {
                     </View>
 
                     {!isActivity && (
-                        <TextApp
-                            size="xs"
-                            variant="medium"
-                            color={theme.colors.text.secondary}
-                        >
-                            {period.subject}
-                        </TextApp>
+                        <View style={{ alignItems: 'flex-end', gap: 3 }}>
+                            <TextApp size="xs" variant="medium" color={theme.colors.text.secondary}>{period.classroom || 'Aula por confirmar'}</TextApp>
+                            {period.teacher ? <TextApp size="xs" color={theme.colors.text.tertiary}>{period.teacher}</TextApp> : null}
+                        </View>
                     )}
                 </View>
             </View>
