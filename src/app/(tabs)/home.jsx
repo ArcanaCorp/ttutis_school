@@ -10,7 +10,7 @@ import Card from '../../components/notifications/Card';
 import AttendanceWeek from '../../components/attendance/AttendanceWeek';
 
 import { useAuth } from '../../context/AuthContext';
-import { studentPortal } from '../../db/db';
+import { useStudentPortal } from '../../context/StudentPortalContext';
 import { theme } from '../../constants/theme';
 
 function Section({ title, subtitle, children }) {
@@ -79,12 +79,16 @@ function EmptyState({ message }) {
 }
 
 export default function HomeTab() {
+    const { data, loading, error } = useStudentPortal();
     const { profile } = useAuth();
 
-    const announcements = studentPortal.announcements || [];
-    const attendance = studentPortal.attendance || [];
-    const recommendations = studentPortal.recommendations || [];
-    const promotions = studentPortal.promotions || [];
+    const announcements = data?.announcements || [];
+    const attendance = data?.attendance || [];
+    const recommendations = [];
+    const promotions = [];
+    const studentName = data?.student
+        ? `${data.student.first_names} ${data.student.last_names}`
+        : profile?.fullName || 'Estudiante';
 
     return (
         <Screen>
@@ -94,7 +98,7 @@ export default function HomeTab() {
                         size="2xl"
                         variant="bold"
                     >
-                        Hola, {profile?.name || 'Estudiante'}
+                        Hola, {studentName.split(' ')[0]}
                     </TextApp>
 
                     <TextApp
@@ -119,9 +123,11 @@ export default function HomeTab() {
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.content}
             >
+                {loading && <EmptyState message="Cargando tu información..." />}
+                {!!error && <EmptyState message={error} />}
                 <Section
                     title="Anuncios"
-                    subtitle="Mantente al día con tu institución"
+                    subtitle={data?.currentEnrollment?.classrooms ? `Avisos para ${data.currentEnrollment.classrooms.grade_label} ${data.currentEnrollment.classrooms.section_name} y para ti` : "Mantente al día con tu institución"}
                 >
                     {announcements.length > 0 ? (
                         <Carousel
