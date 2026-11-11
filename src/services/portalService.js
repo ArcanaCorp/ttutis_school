@@ -38,6 +38,7 @@ export async function getPortalIdentity() {
         userId: user.id,
         fullName: profile?.display_name || memberships?.[0]?.full_name || user.email || 'Usuario TTUTIS',
         avatarPath: profile?.avatar_path || null,
+        email: user.email || memberships?.[0]?.email || null,
         memberships: memberships || [],
         roles: [...new Set((memberships || []).map(item => item.role))],
     };
@@ -156,12 +157,20 @@ export async function getStudentAttendance(studentId) {
 
 export async function getStudentAcademicData(studentId, classroomId, currentEnrollment = null, gradingSettings = {}) {
     const client = requireClient();
-    if (!classroomId) return { courses: [], schedule: [], assessments: [], grades: [] };
+    if (!classroomId) return {
+        courses: [],
+        schedule: { days: [], breaks: [], grade: currentEnrollment?.classrooms?.grade_label || null, section: currentEnrollment?.classrooms?.section_name || null, academicYear: currentEnrollment?.academic_years?.name || null },
+        assessments: [],
+        grades: [],
+        periods: [],
+        finalResults: [],
+    };
 
     const { data: assignments, error: assignmentsError } = await client
         .from('course_assignments')
         .select('id, subject_id, teacher_membership_id, academic_year_id, subjects(id, code, name, description)')
         .eq('classroom_id', classroomId)
+        .eq('academic_year_id', currentEnrollment?.academic_year_id || currentEnrollment?.academic_years?.id)
         .eq('status', 'ACTIVE');
     throwIfError(assignmentsError, 'No se pudieron cargar tus cursos.');
 
@@ -178,7 +187,7 @@ export async function getStudentAcademicData(studentId, classroomId, currentEnro
             .select('id, weekday, start_time, end_time, classroom_label, course_assignment_id, effective_from, effective_until')
             .in('course_assignment_id', assignmentIds)
             .eq('status', 'ACTIVE')
-            .lte('effective_from', new Date().toISOString().slice(0, 10))
+            .or(`effective_from.is.null,effective_from.lte.${new Date().toISOString().slice(0, 10)}`)
             .or(`effective_until.is.null,effective_until.gte.${new Date().toISOString().slice(0, 10)}`)
             .order('weekday')
             .order('start_time')
@@ -189,6 +198,7 @@ export async function getStudentAcademicData(studentId, classroomId, currentEnro
         .from('classroom_assessments')
         .select('id, course_assignment_id, academic_period_id, title, description, assessment_date, maximum_score, status, weight')
         .eq('classroom_id', classroomId)
+        .eq('academic_year_id', currentEnrollment?.academic_year_id || currentEnrollment?.academic_years?.id)
         .in('status', ['PUBLISHED', 'ACTIVE'])
         .order('assessment_date', { ascending: false });
     throwIfError(assessmentsError, 'No se pudieron cargar tus evaluaciones.');
@@ -261,6 +271,7 @@ export async function getStudentAcademicData(studentId, classroomId, currentEnro
         const method = gradingSettings.method === 'SIMPLE' ? 'SIMPLE' : 'WEIGHTED';
         const currentAverage = portalRules.calculateWeightedAverage(graded, scale, method);
         const publishedFinal = (finalResults || []).find(result => result.course_assignment_id === item.id && !result.academic_period_id) || null;
+        const periodResults = (finalResults || []).filter(result => result.course_assignment_id === item.id && result.academic_period_id);
         return {
             id: item.id,
             code: item.subjects?.code || '',
@@ -273,7 +284,22 @@ export async function getStudentAcademicData(studentId, classroomId, currentEnro
                 finalGrade: publishedFinal?.final_score ?? null,
                 finalized: Boolean(publishedFinal),
                 finalFeedback: publishedFinal?.feedback || null,
-                periods: (periods || []).map(period => ({ ...period, evaluations: evaluations.filter(e => e.periodId === period.id) })),
+                periods: (periods || []).map(period => {
+                    const result = periodResults.find(row => row.academic_period_id === period.id);
+                    const periodEvaluations = evaluations.filter(e => e.periodId === period.id);
+                    return {
+                        ...period,
+                        evaluations: periodEvaluations,
+                        average: portalRules.calculateWeightedAverage(
+                            periodEvaluations.filter(e => e.grade !== null),
+                            scale,
+                            method
+                        ),
+                        finalGrade: result?.final_score ?? null,
+                        finalized: Boolean(result),
+                        feedback: result?.feedback || null,
+                    };
+                }),
                 maxScore: scale,
             },
         };
@@ -306,7 +332,7 @@ export async function getMyProfileDetails() {
     const identity = await getPortalIdentity();
     const { data, error } = await client.from('profiles').select('id,display_name,avatar_path,status').eq('id',identity.userId).maybeSingle();
     throwIfError(error,'No se pudo cargar tu perfil.');
-    return { ...identity, profile: data };
+    return { ...identity, profile: data, email: identity.email };
 }
 export async function updateMyDisplayName(displayName) {
     const client = requireClient();
